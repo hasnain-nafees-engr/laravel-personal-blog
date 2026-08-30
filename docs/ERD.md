@@ -1,7 +1,7 @@
 # Entity-Relationship Diagram
 
-> Status: **DRAFT — awaiting approval** (Phase 4 checkpoint). Migrations will be
-> written only after this schema is approved.
+> Status: **implemented**. The migrations in `database/migrations/` match this
+> diagram exactly.
 
 ## Diagram
 

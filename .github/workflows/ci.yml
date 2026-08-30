@@ -1,0 +1,136 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# why: a second push to the same branch cancels the first run instead of
+# queueing behind it - faster feedback, fewer wasted minutes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Code style (Pint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+
+      - name: Install dependencies
+        uses: ramsey/composer-install@v3
+
+      - name: Check formatting
+        run: vendor/bin/pint --test
+
+  analyse:
+    name: Static analysis (Larastan level 5)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_pgsql, mbstring, bcmath, gd, zip, intl
+          coverage: none
+
+      - name: Install dependencies
+        uses: ramsey/composer-install@v3
+
+      # why: Larastan boots the application to understand it, so it needs a
+      # config file and an APP_KEY exactly like a running app does.
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Analyse
+        run: vendor/bin/phpstan analyse --memory-limit=1G --no-progress
+
+  test:
+    name: Tests (PostgreSQL 16)
+    runs-on: ubuntu-latest
+
+    # The suite runs against real PostgreSQL because the app uses
+    # PostgreSQL-specific SQL (ILIKE). See phpunit.xml.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: blog_test
+          POSTGRES_USER: blog
+          POSTGRES_PASSWORD: secret
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U blog -d blog_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: blog_test
+      DB_USERNAME: blog
+      DB_PASSWORD: secret
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_pgsql, mbstring, bcmath, gd, zip, intl
+          # pcov is much faster than Xdebug for line coverage.
+          coverage: pcov
+
+      - name: Install PHP dependencies
+        uses: ramsey/composer-install@v3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      # why build the frontend: Blade calls @vite(), which fails without a
+      # manifest - so a missing build would fail every page-rendering test.
+      - name: Build frontend assets
+        run: |
+          npm ci
+          npm run build
+
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Run tests with coverage
+        run: php artisan test --coverage --min=70
+
+  docker:
+    name: Production image builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # why this job exists: the tests above run on the GitHub runner's PHP,
+      # so they would never notice a broken Dockerfile. This proves the image
+      # the project actually ships still builds.
+      - name: Build the production image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: prod
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

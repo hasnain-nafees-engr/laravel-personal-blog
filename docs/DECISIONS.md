@@ -150,3 +150,176 @@ filesystem. Copying `public/` at build time keeps images immutable; the storage
 volume covers runtime-generated files (uploads). One subtlety documented in the
 Dockerfile: the `public/storage` symlink is baked into the nginx image because
 `artisan storage:link` runs in the app container only.
+
+## D-009: Tailwind CSS 4, not the version Breeze installs
+
+**Choice.** Tailwind 4 with `@tailwindcss/vite`, configured in
+`resources/css/app.css` via `@theme` and `@plugin`.
+
+**Alternatives.** Keep Tailwind 3, which `breeze:install` writes (it adds
+`tailwind.config.js`, `postcss.config.js` and `autoprefixer`).
+
+**Trade-off.** Breeze 2.4's Blade stack still ships Tailwind 3 stubs, but the
+Laravel 13 skeleton ships Tailwind 4. Running Breeze downgraded the project.
+We restored v4 and deleted the v3 config files: the design tokens live in CSS
+next to the styles that use them, there is no separate JS config to keep in
+sync, and PostCSS plus autoprefixer are no longer needed at all. Cost: Breeze's
+generated auth views were written against v3 utility names, so a few needed
+adjusting.
+
+## D-010: Livewire 3, and only in two places
+
+**Choice.** `livewire/livewire ^3.8` — used for the live search box, and nowhere else.
+
+**Alternatives.** Livewire 4 (released); Livewire everywhere; no Livewire at all.
+
+**Trade-off.** The brief locks Livewire 3, and 3.x fully supports Laravel 13.
+More interesting is the *scope*: search results should appear as you type, and
+doing that with full page reloads is absurd — that earns a Livewire component.
+Everything else is a plain Blade form with a normal POST, which works without
+JavaScript, is trivially testable and has no hydration cost. "Use the heavy
+tool only where it pays" is a better answer in review than "we used it because
+we installed it".
+
+One integration detail: **Livewire 3 bundles Alpine.js and starts it itself**,
+so Breeze's `resources/js/app.js` stub — which imports and starts Alpine — was
+removed. Leaving both in place double-initialises Alpine and breaks every
+`x-data` component.
+
+## D-011: Breeze, even though it is no longer Laravel's default starter kit
+
+**Choice.** `laravel/breeze` Blade stack (`--dark --pest`).
+
+**Alternatives.** The current official starter kits (Fortify + Livewire 4 +
+Flux UI, or Inertia + React/Vue/Svelte); hand-rolled authentication.
+
+**Trade-off.** Breeze's README now says it targets "Laravel 11.x and prior",
+and the modern kits use Fortify. But Breeze publishes plain, readable
+controllers into `app/Http/Controllers/Auth/` — you can read exactly how login
+works — whereas Fortify hides that behind a package. For a project whose
+purpose is to *demonstrate* Laravel, visible code beats convenient code. The
+brief also locks Breeze. It installs and runs correctly on Laravel 13.
+
+## D-012: Pest 4 rather than Pest 5
+
+**Choice.** `pestphp/pest ^4` with `pestphp/pest-plugin-laravel ^4`.
+
+**Alternatives.** Pest 5 (newest, requires PHP 8.4 and PHPUnit 13).
+
+**Trade-off.** Pest 5 exists, but `pest-plugin-laravel` — the package that
+provides `$this->get()`, `actingAs()` and the rest inside Pest — publishes its
+Laravel 13 support on the 4.x line. Choosing the newest number would have meant
+betting on plugin compatibility for no gain. Pest 4 runs on PHPUnit 12.5, which
+is what the Laravel 13 skeleton already depends on.
+
+## D-013: Tests run on PostgreSQL, not SQLite in memory
+
+**Choice.** `phpunit.xml` points at a real `blog_test` PostgreSQL database.
+
+**Alternatives.** The Laravel default, `DB_CONNECTION=sqlite` with
+`DB_DATABASE=:memory:`, which is much faster.
+
+**Trade-off.** The application uses PostgreSQL-specific SQL: `ILIKE` for
+case-insensitive search, `timestamptz` columns, and a `whereHas` rewrite forced
+by PostgreSQL's stricter `HAVING` rules. A SQLite suite would go green while
+production broke — worse than having no test. The cost is roughly two seconds
+per run and a database that has to exist, which
+`docker/postgres/init-test-db.sh` creates automatically on first boot.
+
+## D-014: Only arrays go into the cache, never Eloquent models
+
+**Choice.** `BlogQueries` caches plain arrays of scalars.
+
+**Alternatives.** Cache the models or collections directly, which is the usual
+Laravel example.
+
+**Trade-off.** Laravel 13 ships `cache.serializable_classes => false`, so every
+cache store now unserializes with `allowed_classes: false`. A cached Eloquent
+model comes back as `__PHP_Incomplete_Class` — **silently**, with no exception —
+and only explodes later when a Blade view touches a property. Allow-listing the
+classes is possible but re-opens the deserialization gadget-chain risk the
+default exists to close. Caching arrays sidesteps it entirely and unserializes
+faster. `tests/Feature/CachingTest.php` locks the rule in.
+
+Invalidation is explicit: `PostObserver` and `LogPostPublication` forget every
+key in `CacheKeys::postRelated()`. The `database` cache driver has no tag
+support, so keys are named in one place rather than flushed by tag.
+
+## D-015: The `admin` middleware guards taxonomy, policies guard records
+
+**Choice.** `/admin` requires `auth` only. Categories and tags sit inside a
+nested `->middleware('admin')` group. Everything else is authorized per record
+by a policy.
+
+**Alternatives.** Put `admin` on the whole `/admin` group (the first attempt).
+
+**Trade-off.** Guarding the entire area with `admin` locked authors out of
+their own drafts, which contradicts `PostPolicy` allowing an author to edit
+their own work. The two mechanisms answer different questions — middleware asks
+"does this person belong in this *area*?", a policy asks "may they touch *this
+record*?" — and using each for its own question is what makes the rules
+readable. Site-wide taxonomy is genuinely an area-level concern, so it keeps
+the middleware.
+
+## D-016: A `dashboard` route that redirects, instead of editing Breeze
+
+**Choice.** `Route::redirect('/dashboard', '/admin')->name('dashboard')`.
+
+**Alternatives.** Change `route('dashboard')` in the six Breeze files that use it.
+
+**Trade-off.** Breeze redirects there after login, registration, email
+verification and password confirmation. One redirect keeps the name valid
+everywhere and survives a future `breeze:install`; six edits would have to be
+redone every time.
+
+## D-017: Hand-written sitemap and RSS instead of a package
+
+**Choice.** `SitemapController` and `FeedController` rendering Blade templates.
+
+**Alternatives.** `spatie/laravel-sitemap` and a feed package.
+
+**Trade-off.** Each endpoint is one query and about thirty lines of XML. Adding
+two dependencies — with their own upgrade cycles and configuration — to generate
+that is a poor trade, and in a review it is better to be able to explain every
+line than to point at a package.
+
+## D-018: Markdown stored, HTML rendered on read
+
+**Choice.** `posts.body` stores Markdown. `Post::bodyHtml()` renders it through
+`CommonMarkRenderer` with `html_input: 'strip'` and `allow_unsafe_links: false`.
+
+**Alternatives.** A WYSIWYG editor storing HTML; storing rendered HTML alongside
+the source.
+
+**Trade-off.** Storing HTML means trusting whatever the editor produced forever,
+and a stored-XSS bug becomes permanent data. Storing Markdown keeps the source
+of truth plain text and moves the security decision into one function that is
+unit-tested (`tests/Unit/MarkdownRendererTest.php`). It is also what makes
+`{!! $post->body_html !!}` defensible: the only unescaped output in the
+application is provably sanitised at the point it is produced. The accessor uses
+`shouldCache()` so a post renders its Markdown once per request.
+
+## D-019: PHP attributes for mass assignment, with the classic form documented
+
+**Choice.** `#[Fillable([...])]` on models, as the Laravel 13 skeleton does.
+
+**Alternatives.** `protected $fillable = [...]`.
+
+**Trade-off.** Identical behaviour; the attribute is what Laravel 13 generates.
+Because a reviewer may only know the property form, every model carries a
+comment naming it. Either way the security point is the same: a request cannot
+set `role` just by adding it to the form data.
+
+## D-020: Model property annotations for static analysis
+
+**Choice.** Every model carries `@property` / `@property-read` docblocks.
+
+**Alternatives.** Generate them with `barryvdh/laravel-ide-helper`; leave them out
+and lower the Larastan level.
+
+**Trade-off.** Eloquent resolves columns through `__get` at runtime, so without
+annotations static analysis cannot know `$post->status` is a `PostStatus` — which
+produced most of the level-5 errors. Writing them by hand keeps the model
+self-documenting with no generation step in the build, and `checkModelProperties`
+then turns a typo like `$post->titel` into a failed analysis rather than a silent
+null in production. The cost is remembering to update them when a column changes.
