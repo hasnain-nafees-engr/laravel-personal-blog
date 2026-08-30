@@ -174,7 +174,14 @@ Run `make help` to see them with descriptions.
 ```bash
 make test              # 193 tests
 make test-coverage     # with the coverage report
+./scripts/verify-e2e.sh    # 58 checks against the running stack, over real HTTP
 ```
+
+The Pest suite runs in-process with the queue, mail and filesystem faked.
+`scripts/verify-e2e.sh` drives the whole stack the way a browser does — through
+nginx into php-fpm, with the real queue worker and scheduler running. Both
+matter: a queued job that is *dispatched* correctly can still be *broken*, and
+only the second kind of test notices.
 
 Tests run against a **real PostgreSQL** database called `blog_test`, not SQLite,
 because the app uses PostgreSQL-specific SQL (`ILIKE`). Use `make test` rather than

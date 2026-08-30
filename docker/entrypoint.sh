@@ -46,17 +46,30 @@ wait_for_migrations() {
 }
 
 ensure_app_key() {
-    if [ -z "$APP_KEY" ]; then
-        if [ "$APP_ENV" = "production" ]; then
-            log "FATAL: APP_KEY is empty. Set it in the environment (php artisan key:generate --show)."
-            exit 1
-        fi
-        # why: only possible in dev, where .env is bind-mounted and writable.
-        if [ -f .env ]; then
-            log "APP_KEY empty - generating one into .env"
-            php artisan key:generate --force
-        fi
+    [ -n "$APP_KEY" ] && return 0
+
+    if [ "$APP_ENV" = "production" ]; then
+        log "FATAL: APP_KEY is empty. Set it in the environment (php artisan key:generate --show)."
+        exit 1
     fi
+
+    if [ ! -f .env ]; then
+        log "FATAL: APP_KEY is empty and there is no .env to write one into."
+        exit 1
+    fi
+
+    log "APP_KEY empty - generating one into .env"
+    php artisan key:generate --force
+
+    # why the export: docker-compose passes .env into the container with
+    # `env_file`, so APP_KEY="" is a REAL process environment variable - and
+    # Laravel reads $_SERVER before the .env file. Writing the key to .env is
+    # therefore not enough; without exporting it into this shell (which
+    # php-fpm inherits) the application would keep booting with no key and
+    # every page would 500 with MissingAppKeyException.
+    APP_KEY=$(grep '^APP_KEY=' .env | head -1 | cut -d= -f2-)
+    export APP_KEY
+    log "APP_KEY generated and exported to the runtime environment."
 }
 
 wait_for_db

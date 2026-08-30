@@ -10,7 +10,7 @@ GID          := $(shell id -g)
 
 .PHONY: help up down restart ps logs shell artisan tinker migrate fresh seed \
         test test-coverage lint fix build prod-up prod-down deps composer npm db-shell \
-        queue-restart
+        queue-restart key
 
 help: ## List available commands
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
@@ -23,7 +23,18 @@ deps: ## Install Composer deps via container (runs automatically when vendor/ is
 			$(COMPOSER_IMG) composer install --prefer-dist --no-interaction; \
 	fi
 
-up: deps ## Build (if needed) and start the dev stack
+# why key before compose: a container inherits .env through `env_file`, so an
+# empty APP_KEY becomes a real environment variable that Laravel reads in
+# preference to the .env file. Generating the key first means the containers
+# start with a usable one.
+key: ## Generate APP_KEY in .env if it is empty
+	@if [ -f .env ] && ! grep -q '^APP_KEY=base64:' .env; then \
+		echo ">> APP_KEY is empty - generating one..."; \
+		docker run --rm -u "$(UID):$(GID)" -e HOME=/tmp -v "$$PWD:/app" -w /app \
+			$(COMPOSER_IMG) php artisan key:generate --force --ansi; \
+	fi
+
+up: deps key ## Build (if needed) and start the dev stack
 	$(COMPOSE) up -d --build
 	@echo ">> App: http://localhost:$${APP_PORT:-8000}  |  Mailpit: http://localhost:$${MAILPIT_UI_PORT:-8025}"
 
