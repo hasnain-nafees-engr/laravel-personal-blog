@@ -17,6 +17,15 @@ export default defineConfig({
         tailwindcss(),
     ],
     server: {
+        // why: the dev server runs inside a container, so it must bind to
+        // 0.0.0.0; the browser reaches HMR through the published port on
+        // localhost.
+        host: '0.0.0.0',
+        port: Number(process.env.VITE_PORT ?? 5173),
+        strictPort: true,
+        hmr: {
+            host: 'localhost',
+        },
         watch: {
             ignored: ['**/storage/framework/views/**'],
         },

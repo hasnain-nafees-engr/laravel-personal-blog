@@ -1,0 +1,74 @@
+# Development overrides - loaded AUTOMATICALLY by `docker compose up`.
+# Production deploys use `docker compose -f docker-compose.yml ...` and never
+# see this file, so the base file stays clean.
+
+services:
+  app:
+    build:
+      target: dev
+    # `!override` replaces (not merges) the base volumes: in dev the whole
+    # repo is bind-mounted, so the prod storage volume must not shadow it.
+    volumes: !override
+      - .:/var/www/html
+    environment:
+      CONTAINER_ROLE: app
+      # Flip in .env: off | debug | develop | coverage
+      XDEBUG_MODE: "${XDEBUG_MODE:-off}"
+      XDEBUG_CONFIG: "client_host=host.docker.internal"
+
+  queue:
+    build:
+      target: dev
+    volumes: !override
+      - .:/var/www/html
+    environment:
+      CONTAINER_ROLE: queue
+      XDEBUG_MODE: "off"
+
+  scheduler:
+    build:
+      target: dev
+    volumes: !override
+      - .:/var/www/html
+    environment:
+      CONTAINER_ROLE: scheduler
+      XDEBUG_MODE: "off"
+
+  nginx:
+    volumes: !override
+      - .:/var/www/html:ro
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+
+  # Vite dev server with hot reload. why a container: the host's Node 18 is
+  # too old for Vite 8 (needs 20.19+/22.12+).
+  vite:
+    image: node:22-alpine
+    restart: unless-stopped
+    user: "${WWWUSER:-1000}:${WWWGROUP:-1000}"
+    working_dir: /var/www/html
+    environment:
+      npm_config_cache: /tmp/npm
+    command: sh -c "npm ci --no-audit --no-fund && exec npm run dev -- --host 0.0.0.0 --port ${VITE_PORT:-5173}"
+    volumes:
+      - .:/var/www/html
+    ports:
+      - "${VITE_PORT:-5173}:${VITE_PORT:-5173}"
+    healthcheck:
+      # why: Vite answers 404 on "/" - /@vite/client is always served.
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:${VITE_PORT:-5173}/@vite/client || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 180s   # first boot runs a full npm ci
+
+  # Catches every outgoing mail in dev; web UI on http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - "${MAILPIT_UI_PORT:-8025}:8025"
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 15s
+      timeout: 5s
+      retries: 5

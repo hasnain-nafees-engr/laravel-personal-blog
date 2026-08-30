@@ -1,0 +1,42 @@
+# Keep the build context small and secrets out of images.
+.git
+.github
+.scaffold-tmp
+
+# Dependencies are built inside their own stages.
+vendor
+node_modules
+
+# Secrets - NEVER baked into an image. Config arrives via env_file at runtime.
+.env
+.env.*
+!.env.example
+
+# Build artifacts produced by the assets stage / dev server.
+public/build
+public/hot
+public/storage
+
+# Runtime state; the prod stage recreates the empty skeleton itself.
+storage/app/private/*
+storage/app/public/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/testing/*
+storage/framework/views/*
+storage/logs/*
+storage/pail
+bootstrap/cache/*
+database/*.sqlite
+
+# Not needed inside images.
+docs
+tests
+Makefile
+docker-compose*.yml
+README.md
+AGENTS.md
+CLAUDE.md
+.editorconfig
+.gitattributes
+.gitignore

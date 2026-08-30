@@ -86,3 +86,67 @@ PHP 8.5 and could select package versions our PHP 8.4 runtime refuses. The pin m
 dependency resolution behave exactly like the production runtime, no matter which PHP
 executes Composer. `// why:` this is also the textbook fix whenever dev machines and
 servers run different PHP versions.
+
+---
+
+## D-005: Hand-written Docker setup instead of Laravel Sail
+
+**Choice.** Our own multi-stage `Dockerfile` + `docker-compose.yml` (+ dev override).
+
+**Alternatives.** Laravel Sail, Laravel's official Docker option.
+
+**Trade-off.** Sail is excellent for a quick dev sandbox, but it is *only* a dev
+environment: one fat container with everything, code bind-mounted, no production
+story. Writing our own gives us (1) a slim prod image built in stages (composer
+stage, npm stage, runtime with only the needed extensions), (2) a real service
+topology — php-fpm behind nginx, a separate queue worker and scheduler, health-
+checked and started in dependency order, and (3) something worth defending in a
+review: we can explain every line. Cost: more files to maintain than `sail up`.
+
+## D-006: Two database modes; container mode is the out-of-the-box default
+
+**Choice.** `.env` alone switches between host PostgreSQL
+(`DB_HOST=host.docker.internal`, `COMPOSE_PROFILES=` empty) and a containerized
+`postgres:16-alpine` (`DB_HOST=postgres`, `COMPOSE_PROFILES=db`). The committed
+`.env.example` defaults to **container** mode.
+
+**Alternatives.** Host mode as default (as the project brief phrased it).
+
+**Trade-off.** The brief also demands `git clone → cp .env.example .env → make up`
+with **no manual steps** — but host mode inherently needs a one-time, sudo-level
+change to `postgresql.conf`/`pg_hba.conf` (host Postgres listens on 127.0.0.1
+only, so containers cannot reach it). Container mode is the only default that
+satisfies the reproducibility requirement; host mode is one script away
+(`sudo ./scripts/setup-host-postgres.sh`) and fully documented. `// why:` Compose
+reads `COMPOSE_PROFILES` from `.env`, which is what makes the switch env-only.
+
+## D-007: `app` waits for the database in its entrypoint, not via `depends_on`
+
+**Choice.** The entrypoint polls the DB with a small PDO loop, then migrates;
+`depends_on: condition: service_healthy` is used where it is always valid
+(nginx/queue/scheduler → app).
+
+**Alternatives.** `depends_on: postgres` with a health condition on `app`.
+
+**Trade-off.** In host-DB mode there is no `postgres` service to depend on —
+a `depends_on` would break that mode. The entrypoint loop works identically in
+both modes and doubles as the "wait for DB before migrating" step the deploy
+needs anyway. Bonus: because `app`'s healthcheck only passes after migrations
+finished, `depends_on: app healthy` gives queue and scheduler a
+"schema is ready" guarantee for free.
+
+## D-008: nginx gets its own image built from the same Dockerfile
+
+**Choice.** A `nginx` build target (`nginx:1.30-alpine`) that copies the built
+`public/` directory out of the prod stage; uploads are shared through a named
+`storage` volume mounted into both containers.
+
+**Alternatives.** (a) Bind-mount the code into nginx (dev-only trick, useless
+for prod images); (b) route *everything* through php-fpm (slow static files).
+
+**Trade-off.** nginx must be able to serve `public/` (static assets) and pass
+PHP requests to php-fpm — but it lives in another container with its own
+filesystem. Copying `public/` at build time keeps images immutable; the storage
+volume covers runtime-generated files (uploads). One subtlety documented in the
+Dockerfile: the `public/storage` symlink is baked into the nginx image because
+`artisan storage:link` runs in the app container only.

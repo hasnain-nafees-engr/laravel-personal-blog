@@ -1,0 +1,143 @@
+# Production-shaped compose file. Development conveniences (bind mounts,
+# Vite dev server, Mailpit, Xdebug) live in docker-compose.override.yml,
+# which docker compose loads automatically - so THIS file stays prod-clean.
+#
+# Database modes (switch by editing .env ONLY):
+#   host PostgreSQL : DB_HOST=host.docker.internal  COMPOSE_PROFILES=
+#   containerized   : DB_HOST=postgres              COMPOSE_PROFILES=db
+#
+# why `app` has no depends_on postgres: in host mode the postgres service
+# does not exist at all; the entrypoint waits for whichever DB .env points at.
+
+name: laravel-blog
+
+services:
+  app:
+    build: &app-build
+      context: .
+      dockerfile: Dockerfile
+      target: prod
+      args:
+        WWWUSER: "${WWWUSER:-1000}"
+        WWWGROUP: "${WWWGROUP:-1000}"
+    image: laravel-blog/app
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      CONTAINER_ROLE: app
+    volumes:
+      - app-storage:/var/www/html/storage
+    extra_hosts:
+      # why: lets containers reach the HOST's PostgreSQL on Linux.
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      # Healthy only after the entrypoint finished migrations and php-fpm answers /ping.
+      test: ["CMD", "healthcheck-fpm"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+
+  nginx:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: nginx
+    image: laravel-blog/nginx
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8000}:80"
+    depends_on:
+      app:
+        condition: service_healthy
+    volumes:
+      - app-storage:/var/www/html/storage:ro
+    healthcheck:
+      # Proves the full chain: nginx -> php-fpm -> Laravel's /up health route.
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1/up || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  queue:
+    build: *app-build
+    image: laravel-blog/app
+    restart: unless-stopped
+    command:
+      ["php", "artisan", "queue:work", "--tries=3", "--backoff=5", "--max-time=3600"]
+    env_file: .env
+    environment:
+      CONTAINER_ROLE: queue
+    volumes:
+      - app-storage:/var/www/html/storage
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      # why: app becomes healthy only after migrations, so the worker never
+      # races against a half-migrated schema.
+      app:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f 'queue:work' || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  scheduler:
+    build: *app-build
+    image: laravel-blog/app
+    restart: unless-stopped
+    command: ["php", "artisan", "schedule:work"]
+    env_file: .env
+    environment:
+      CONTAINER_ROLE: scheduler
+    volumes:
+      - app-storage:/var/www/html/storage
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      app:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f 'schedule:work' || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # ---- optional services, enabled via COMPOSE_PROFILES in .env ------------
+
+  postgres:
+    image: postgres:16-alpine
+    profiles: [db]
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: "${DB_DATABASE:-blog}"
+      POSTGRES_USER: "${DB_USERNAME:-blog}"
+      POSTGRES_PASSWORD: "${DB_PASSWORD:-secret}"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # Uncomment to inspect the DB from the host (5433 avoids the host's own 5432):
+    # ports:
+    #   - "127.0.0.1:5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-blog} -d ${DB_DATABASE:-blog}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    profiles: [cache]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  app-storage:
+  pgdata:

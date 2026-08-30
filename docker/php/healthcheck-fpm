@@ -1,0 +1,7 @@
+#!/bin/sh
+# Ask php-fpm's built-in /ping endpoint (see zz-app.conf) whether the pool is
+# alive. Exits non-zero when php-fpm cannot answer, which marks the container
+# unhealthy in docker-compose.
+set -e
+export SCRIPT_NAME=/ping SCRIPT_FILENAME=/ping REQUEST_METHOD=GET
+cgi-fcgi -bind -connect 127.0.0.1:9000 | grep -q pong
