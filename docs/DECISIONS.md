@@ -323,3 +323,43 @@ produced most of the level-5 errors. Writing them by hand keeps the model
 self-documenting with no generation step in the build, and `checkModelProperties`
 then turns a typo like `$post->titel` into a failed analysis rather than a silent
 null in production. The cost is remembering to update them when a column changes.
+
+## D-021: The queued job's own body needs its own test
+
+**Choice.** `tests/Feature/Jobs/OptimizeCoverImageTest.php` constructs
+`OptimizeCoverImage` and calls `handle()` against a faked disk, in addition to
+the CRUD test that asserts the job is *dispatched*.
+
+**Alternatives.** Rely on the existing `Queue::fake()` assertion in the admin
+CRUD test.
+
+**Trade-off.** `Queue::fake()` is the right tool for testing the *controller* —
+it proves the job was dispatched without running it. But because it never
+executes `handle()`, the job's body had no coverage at all, and it shipped
+calling `Image::read()` — Intervention Image **v3**'s method name, which does
+not exist in v4. Every test passed. Only an end-to-end upload through the
+running stack surfaced it.
+
+"The job was dispatched" and "the job works" are two separate claims, and each
+needs its own test. Larastan had actually flagged the missing method, and it
+was wrongly silenced with an `ignoreErrors` entry — so this also removed the
+project's only suppression. `phpstan.neon` now carries no ignore rules, and a
+comment explains why.
+
+## D-022: Queue workers must be restarted when job code changes
+
+**Choice.** A `make queue-restart` target, and `queue:work --max-time=3600` in
+the compose command.
+
+**Alternatives.** Assume the bind mount is enough in development.
+
+**Trade-off.** A worker is a long-running PHP process: it loads job classes
+into memory once and keeps them. Editing the file changes nothing for a worker
+that is already running — the fixed `OptimizeCoverImage` above kept failing
+with the *old* error until the worker was restarted, which is a genuinely
+confusing five minutes if you have not met it before.
+
+`php artisan queue:restart` signals workers to finish the current job and exit;
+the container's restart policy brings them back with the new code. `--max-time`
+is a belt-and-braces backstop: a worker recycles itself hourly regardless. In a
+real deployment this is a mandatory post-deploy step.

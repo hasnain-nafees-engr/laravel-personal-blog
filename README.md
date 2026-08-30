@@ -10,7 +10,7 @@ events, queued jobs, Eloquent relationships and a real Docker setup.
 | Database | PostgreSQL 16 |
 | Front end | Blade + Tailwind CSS 4 + Alpine.js, Livewire 3 for live search |
 | Build | Vite 8 |
-| Tests | Pest 4 — 187 tests, 85.9% coverage |
+| Tests | Pest 4 — 193 tests, 87% coverage |
 | Static analysis | Larastan (PHPStan) level 5 |
 | Formatting | Laravel Pint (PSR-12) |
 
@@ -165,13 +165,14 @@ Run `make help` to see them with descriptions.
 | `make artisan cmd="route:list"` | Any Artisan command |
 | `make composer cmd="require x/y"` | Any Composer command |
 | `make npm cmd="install x"` | Any npm command |
+| `make queue-restart` | Reload queue workers after changing job code |
 | `make db-shell` | psql into the database |
 | `make prod-up` | Start the production-shaped stack (no dev overrides) |
 
 ### Running the tests
 
 ```bash
-make test              # 187 tests
+make test              # 193 tests
 make test-coverage     # with the coverage report
 ```
 
@@ -281,6 +282,18 @@ Then rebuild: `make down && make build && make up`.
 
 Cached config or routes. Run `make artisan cmd="optimize:clear"`. The entrypoint does
 this automatically in development, but a `php artisan optimize` run by hand persists.
+
+**7. A job keeps failing with an error you already fixed**
+
+Queue workers are long-running processes — they load job classes into memory once and
+keep them, so editing the file changes nothing for a worker that is already running.
+
+```bash
+make queue-restart
+```
+
+The worker finishes its current job, exits, and the container restarts it with the new
+code. This is a mandatory step after any real deployment too.
 
 ---
 

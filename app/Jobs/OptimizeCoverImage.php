@@ -35,7 +35,7 @@ class OptimizeCoverImage implements ShouldQueue
     {
         $disk = Storage::disk('public');
 
-        // The post (or the image) may have been deleted while we queued.
+        // The post (or the image) may have been replaced while this queued.
         if (! $disk->exists($this->path)) {
             return;
         }
@@ -46,16 +46,18 @@ class OptimizeCoverImage implements ShouldQueue
             return;
         }
 
-        $maxWidth = (int) config('blog.cover_max_width', 1600);
+        $absolutePath = $disk->path($this->path);
 
-        $image = Image::read($disk->path($this->path));
+        // why decodePath() and not read(): Intervention Image v4 renamed the
+        // entry points to decode*(). `Image::read()` is v3's name and fails at
+        // runtime with "undefined method" - which is exactly what happened
+        // here until an end-to-end upload caught it.
+        $image = Image::decodePath($absolutePath);
 
-        // scaleDown never enlarges a small image - it only shrinks big ones.
-        $image->scaleDown(width: $maxWidth);
+        // scaleDown never enlarges a small image; it only shrinks big ones,
+        // keeping the aspect ratio.
+        $image->scaleDown(width: (int) config('blog.cover_max_width', 1600));
 
-        $disk->put($this->path, (string) $image->encodeByExtension(
-            pathinfo($this->path, PATHINFO_EXTENSION) ?: 'jpg',
-            quality: 82,
-        ));
+        $image->save($absolutePath, quality: 82);
     }
 }

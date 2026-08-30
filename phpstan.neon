@@ -22,11 +22,11 @@ parameters:
     # Makes $post->titel an error rather than a silent null at runtime.
     checkModelProperties: true
 
-    ignoreErrors:
-        # Intervention Image's facade has no docblock for read(), so the
-        # analyser cannot see a method that certainly exists. Verified against
-        # the package: Intervention\Image\ImageManager::read().
-        -
-            identifier: staticMethod.notFound
-            message: '#Call to an undefined static method Intervention\\Image\\Laravel\\Facades\\Image::read\(\)#'
-            path: app/Jobs/OptimizeCoverImage.php
+    # NOTE: there is deliberately no ignoreErrors list.
+    #
+    # There used to be one entry here, silencing "undefined static method
+    # Image::read()" on the claim that the facade merely lacked a docblock.
+    # That claim was wrong - read() is Intervention Image v3's name, and the
+    # job crashed on the first real upload. The analyser was right and the
+    # suppression hid a genuine bug. Ignore rules earn their place only with
+    # evidence, not with a plausible-sounding comment.

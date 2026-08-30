@@ -9,7 +9,8 @@ GID          := $(shell id -g)
 .DEFAULT_GOAL := help
 
 .PHONY: help up down restart ps logs shell artisan tinker migrate fresh seed \
-        test test-coverage lint fix build prod-up prod-down deps composer npm db-shell
+        test test-coverage lint fix build prod-up prod-down deps composer npm db-shell \
+        queue-restart
 
 help: ## List available commands
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
@@ -77,6 +78,9 @@ lint: ## Code style check (Pint) + static analysis (Larastan)
 	$(COMPOSE) exec app ./vendor/bin/pint --test
 	$(COMPOSE) exec app ./vendor/bin/phpstan clear-result-cache
 	$(COMPOSE) exec app ./vendor/bin/phpstan analyse --memory-limit=1G --no-progress
+
+queue-restart: ## Tell queue workers to reload (needed after changing job code)
+	$(COMPOSE) exec app php artisan queue:restart
 
 fix: ## Auto-fix code style with Pint
 	$(COMPOSE) exec app ./vendor/bin/pint
