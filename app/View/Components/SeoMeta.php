@@ -37,7 +37,7 @@ class SeoMeta extends Component
         $this->pageTitle = filled($title) ? "{$title} — {$siteName}" : $siteName;
 
         $this->pageDescription = str(
-            $description ?: 'Notes on engineering, Laravel and building things that last.'
+            $description ?: 'Notes on engineering, Laravel and building things that last.',
         )->stripTags()->squish()->limit(160)->value();
 
         // Open Graph requires an ABSOLUTE url - a relative path shows no

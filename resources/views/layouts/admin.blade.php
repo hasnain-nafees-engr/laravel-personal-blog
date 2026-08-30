@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="robots" content="noindex, nofollow">
-    <title>{{ $title ?? 'Admin' }} — {{ config('app.name') }}</title>
+    <title>{{ $title }} — {{ config('app.name') }}</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="min-h-screen bg-paper-100 dark:bg-ink-950">
@@ -86,7 +86,7 @@
                 </svg>
             </button>
 
-            <h1 class="font-serif text-lg font-semibold">{{ $header ?? ($title ?? 'Admin') }}</h1>
+            <h1 class="font-serif text-lg font-semibold">{{ $header ?? $title }}</h1>
 
             <a href="{{ route('home') }}" target="_blank" rel="noopener"
                class="ml-auto text-sm text-ink-500 hover:text-ochre-700 dark:text-paper-300">

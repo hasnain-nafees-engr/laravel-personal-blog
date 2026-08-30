@@ -4,22 +4,43 @@ namespace App\Models;
 
 use App\Enums\UserRole;
 use Database\Factories\UserFactory;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Carbon;
 use Laravel\Sanctum\HasApiTokens;
 
-// why: Laravel 13 lets you declare mass-assignment rules as attributes.
-// The classic equivalent is `protected $fillable = [...]` inside the class.
-// Either way the point is the same: a request cannot set `role` (or any other
-// column) just by adding it to the form data.
+/**
+ * why the #[Fillable] attribute below: Laravel 13 lets you declare
+ * mass-assignment rules as attributes. The classic equivalent is
+ * `protected $fillable = [...]` inside the class. Either way the point is the
+ * same - a request cannot set `role` (or any other column) just by adding it
+ * to the form data.
+ *
+ * @property int $id
+ * @property string $name
+ * @property string $email
+ * @property Carbon|null $email_verified_at
+ * @property string $password
+ * @property UserRole $role
+ * @property-read Collection<int, Post> $posts
+ * @property-read Collection<int, Comment> $comments
+ * @property-read Collection<int, Comment> $commentsOnPosts
+ */
 #[Fillable(['name', 'email', 'password'])]
 #[Hidden(['password', 'remember_token'])]
-class User extends Authenticatable
+// why implement MustVerifyEmail: Breeze ships email-verification routes and
+// fires the Verified event, and that event's constructor requires this
+// contract. Without it the scaffolding is quietly broken - the routes exist
+// but can never work. Implementing it does NOT force anyone to verify; that
+// only happens on routes given the 'verified' middleware, and none are.
+class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, Notifiable;

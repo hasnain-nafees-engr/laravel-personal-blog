@@ -9,6 +9,7 @@ use App\Models\Comment;
 use App\Models\Post;
 use App\Models\Tag;
 use App\Support\CacheKeys;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Cache;
 
@@ -41,8 +42,22 @@ final class BlogQueries
             CacheKeys::SIDEBAR_CATEGORIES,
             (int) config('blog.cache_ttl'),
             fn (): array => Category::query()
-                ->withCount(['posts' => fn ($q) => $q->published()])
-                ->having('posts_count', '>', 0)
+                // why the @var docblocks: withCount() and whereHas() hand the
+                // closure a generic Builder, so the analyser cannot see that
+                // it belongs to Post and therefore has the published() scope.
+                ->withCount(['posts' => function (Builder $q): void {
+                    /** @var Builder<Post> $q */
+                    $q->published();
+                }])
+                // why whereHas and not having('posts_count', '>', 0):
+                // withCount adds a SELECT subquery, and PostgreSQL does not
+                // allow a select alias in HAVING (MySQL does, which is how
+                // this trap gets written). whereHas emits an EXISTS clause,
+                // which is correct everywhere.
+                ->whereHas('posts', function (Builder $q): void {
+                    /** @var Builder<Post> $q */
+                    $q->published();
+                })
                 ->orderByDesc('posts_count')
                 ->get()
                 ->map(fn (Category $c): array => [
@@ -65,8 +80,14 @@ final class BlogQueries
             CacheKeys::SIDEBAR_TAGS,
             (int) config('blog.cache_ttl'),
             fn (): array => Tag::query()
-                ->withCount(['posts' => fn ($q) => $q->published()])
-                ->having('posts_count', '>', 0)
+                ->withCount(['posts' => function (Builder $q): void {
+                    /** @var Builder<Post> $q */
+                    $q->published();
+                }])
+                ->whereHas('posts', function (Builder $q): void {
+                    /** @var Builder<Post> $q */
+                    $q->published();
+                })
                 ->orderByDesc('posts_count')
                 ->limit($limit)
                 ->get()
@@ -124,9 +145,9 @@ final class BlogQueries
             // the card touches.
             ->with(['category', 'user'])
             ->withCount('approvedComments')
-            ->where(function ($query) use ($post, $tagIds): void {
+            ->where(function (Builder $query) use ($post, $tagIds): void {
                 $query->where('category_id', $post->category_id)
-                    ->orWhereHas('tags', fn ($q) => $q->whereIn('tags.id', $tagIds));
+                    ->orWhereHas('tags', fn (Builder $q) => $q->whereIn('tags.id', $tagIds));
             })
             ->latest('published_at')
             ->limit((int) config('blog.related_posts'))

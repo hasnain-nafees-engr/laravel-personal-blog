@@ -7,13 +7,34 @@ use Database\Factories\CommentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
+/**
+ * @property int $id
+ * @property int $post_id
+ * @property int|null $parent_id
+ * @property int|null $user_id
+ * @property string $author_name
+ * @property string $author_email
+ * @property string $body
+ * @property CommentStatus $status
+ * @property Carbon $created_at
+ * @property Carbon $updated_at
+ * @property-read string $initials
+ * @property-read string $avatar_hash
+ * @property-read Post|null $post
+ * @property-read Comment|null $parent
+ * @property-read User|null $user
+ * @property-read Collection<int, Comment> $replies
+ * @property-read Collection<int, Comment> $approvedReplies
+ */
 #[Fillable(['post_id', 'parent_id', 'user_id', 'author_name', 'author_email', 'body', 'status'])]
 class Comment extends Model
 {

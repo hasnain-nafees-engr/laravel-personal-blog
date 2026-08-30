@@ -21,6 +21,9 @@ use Livewire\Component;
  *
  * Everything else on this site (the comment form aside) is a plain Blade form
  * with a normal POST - simpler, works without JavaScript, easier to test.
+ *
+ * @property-read Collection<int, Post> $results  Livewire computed property,
+ *         backed by getResultsProperty() and resolved through __get.
  */
 class PostSearch extends Component
 {

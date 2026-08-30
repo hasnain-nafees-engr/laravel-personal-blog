@@ -61,6 +61,10 @@ class PostController extends Controller
         return view('posts.show', [
             'post' => $post,
             'related' => $this->queries->relatedPosts($post),
+            // why passed explicitly rather than left to `$isPreview ?? false`
+            // in the template: the view then always receives every variable it
+            // uses, so a typo fails loudly instead of silently reading null.
+            'isPreview' => false,
         ]);
     }
 

@@ -9,11 +9,11 @@
     {{-- A class-based component: it builds every meta/OG tag from props.
          See app/View/Components/SeoMeta.php --}}
     <x-seo-meta
-        :title="$title ?? null"
-        :description="$description ?? null"
-        :image="$image ?? null"
-        :type="$ogType ?? 'website'"
-        :published="$publishedAt ?? null"
+        :title="$title"
+        :description="$description"
+        :image="$image"
+        :type="$ogType"
+        :published="$publishedAt"
     />
 
     <link rel="alternate" type="application/rss+xml"

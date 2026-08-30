@@ -119,6 +119,9 @@ services:
       POSTGRES_PASSWORD: "${DB_PASSWORD:-secret}"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      # Creates the "<db>_test" database on first boot so `make test` works
+      # straight after a clone. Runs only when the volume is empty.
+      - ./docker/postgres/init-test-db.sh:/docker-entrypoint-initdb.d/10-init-test-db.sh:ro
     # Uncomment to inspect the DB from the host (5433 avoids the host's own 5432):
     # ports:
     #   - "127.0.0.1:5433:5432"

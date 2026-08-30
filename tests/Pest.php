@@ -1,6 +1,8 @@
 <?php
 
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Crypt;
 use Tests\TestCase;
 
 /*
@@ -8,9 +10,25 @@ use Tests\TestCase;
 | Test Case
 |--------------------------------------------------------------------------
 |
-| The closure you provide to your test functions is always bound to a specific PHPUnit test
-| case class. By default, that class is "PHPUnit\Framework\TestCase". Of course, you may
-| need to change it using the "pest()" function to bind a different classes or traits.
+| HOW PEST MAPS TO PHPUNIT (worth knowing for the interview):
+|
+|   Pest is not a different test runner - it IS PHPUnit underneath. Every
+|   `test('...', function () {})` closure is compiled into a method on a
+|   PHPUnit TestCase class. So:
+|
+|     test('a guest cannot delete', fn () => ...)   ->  public function test_a_guest_cannot_delete()
+|     beforeEach()                                  ->  protected function setUp()
+|     expect($x)->toBe(1)                           ->  $this->assertSame(1, $x)
+|     $this->get('/')                               ->  identical - it is the same TestCase
+|
+|   That means every Laravel testing helper (actingAs, assertDatabaseHas,
+|   Mail::fake) works unchanged, and `php artisan test` runs both styles.
+|   Pest is chosen here purely for readability.
+|
+| The line below binds Laravel's TestCase and the RefreshDatabase trait to
+| every file under tests/Feature. RefreshDatabase wraps each test in a
+| database transaction and rolls it back afterwards, so tests never see each
+| other's data.
 |
 */
 
@@ -18,33 +36,53 @@ pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->in('Feature');
 
+// Unit tests boot the framework but get NO database.
+//
+// why boot it at all: helpers like config() and app() need a container. The
+// alternative - passing every setting in as an argument - would distort the
+// code just to suit the tests. Leaving RefreshDatabase off keeps them fast
+// and makes it obvious that a unit test touching the database is misplaced.
+pest()->extend(TestCase::class)->in('Unit');
+
 /*
 |--------------------------------------------------------------------------
 | Expectations
 |--------------------------------------------------------------------------
-|
-| When you're writing tests, you often need to check that values meet certain conditions. The
-| "expect()" function gives you access to a set of "expectations" methods that you can use
-| to assert different things. Of course, you may extend the Expectation API at any time.
-|
 */
 
-expect()->extend('toBeOne', function () {
-    return $this->toBe(1);
+expect()->extend('toBeSlug', function () {
+    return $this->toMatch('/^[a-z0-9]+(?:-[a-z0-9]+)*$/');
 });
 
 /*
 |--------------------------------------------------------------------------
-| Functions
+| Helpers
 |--------------------------------------------------------------------------
-|
-| While Pest is very powerful out-of-the-box, you may have some testing code specific to your
-| project that you don't want to repeat in every file. Here you can also expose helpers as
-| global functions to help you to reduce the number of lines of code in your test files.
-|
+| Shared shortcuts so individual tests stay about the behaviour under test.
 */
 
-function something()
+function admin(): User
 {
-    // ..
+    return User::factory()->admin()->create();
+}
+
+function author(): User
+{
+    return User::factory()->create();
+}
+
+/**
+ * The two hidden fields the public comment form posts.
+ *
+ * @return array<string, string>
+ */
+function honeypotFields(): array
+{
+    return [
+        'website' => '',
+        // Encrypted timestamp, back-dated so the "typed too fast" check passes.
+        'started_at' => Crypt::encryptString(
+            (string) now()->subMinute()->timestamp,
+        ),
+    ];
 }

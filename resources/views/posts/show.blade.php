@@ -4,8 +4,9 @@
     :image="$post->cover_image"
     og-type="article"
     :published-at="$post->published_at"
+    :is-preview="$isPreview"
 >
-    @if (! empty($isPreview))
+    @if ($isPreview)
         {{-- Draft preview banner - only the author or an admin can reach this. --}}
         <div class="bg-ochre-600 px-4 py-3 text-center text-sm font-medium text-white">
             {{ __('blog.draft_preview') }}
@@ -101,7 +102,7 @@
          honest choice - no props to declare, nothing reusable to abstract.
          x-post-card above is a component because it IS reused, with a defined
          prop, in four different views. --}}
-    @unless (! empty($isPreview))
+    @unless ($isPreview)
         @include('posts.partials.comments')
     @endunless
 </x-app-layout>

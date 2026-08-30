@@ -27,7 +27,7 @@ class NewCommentNotification extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'New comment on "'.($this->comment->post?->title ?? 'your post').'"',
+            subject: 'New comment on "'.($this->comment->post->title ?? 'your post').'"',
             // Replies go to the person who wrote the comment, not to the app.
             replyTo: [$this->comment->author_email],
         );

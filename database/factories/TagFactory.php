@@ -11,9 +11,6 @@ use Illuminate\Support\Str;
  */
 class TagFactory extends Factory
 {
-    /**
-     * @return array<string, mixed>
-     */
     public function definition(): array
     {
         $name = fake()->unique()->word();

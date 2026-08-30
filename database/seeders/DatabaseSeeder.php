@@ -97,6 +97,6 @@ class DatabaseSeeder extends Seeder
             }
         });
 
-        $this->command?->info('Seeded: admin@example.com / author@example.com - password: "password"');
+        $this->command->info('Seeded: admin@example.com / author@example.com - password: "password"');
     }
 }

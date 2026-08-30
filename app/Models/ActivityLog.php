@@ -6,9 +6,19 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Support\Carbon;
 
 /**
  * One line of the admin audit trail: who did what, to which record.
+ *
+ * @property int $id
+ * @property int|null $user_id
+ * @property string $action
+ * @property string $subject_type
+ * @property int $subject_id
+ * @property Carbon|null $created_at
+ * @property-read User|null $user
+ * @property-read Model|null $subject
  */
 #[Fillable(['user_id', 'action', 'subject_type', 'subject_id'])]
 class ActivityLog extends Model

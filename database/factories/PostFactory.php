@@ -14,9 +14,6 @@ use Illuminate\Support\Str;
  */
 class PostFactory extends Factory
 {
-    /**
-     * @return array<string, mixed>
-     */
     public function definition(): array
     {
         $title = rtrim(fake()->unique()->sentence(random_int(4, 8)), '.');
@@ -87,11 +84,11 @@ class PostFactory extends Factory
             $sections[] = fake()->paragraph(5);
 
             if ($i === 2) {
-                $sections[] = "- ".fake()->sentence(6)."\n- ".fake()->sentence(5)."\n- ".fake()->sentence(7);
+                $sections[] = '- '.fake()->sentence(6)."\n- ".fake()->sentence(5)."\n- ".fake()->sentence(7);
             }
 
             if ($i === 3) {
-                $sections[] = "> ".fake()->sentence(12);
+                $sections[] = '> '.fake()->sentence(12);
                 $sections[] = "```php\n\$posts = Post::published()->with('category')->paginate();\n```";
             }
         }

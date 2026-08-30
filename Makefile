@@ -56,14 +56,27 @@ fresh: ## DROP everything, re-migrate and seed demo data
 seed: ## Seed demo data
 	$(COMPOSE) exec app php artisan db:seed
 
+# why the -e flags: docker-compose injects .env into the container as real
+# environment variables, and Laravel reads $_SERVER before PHPUnit's <env>
+# entries - so the test settings have to be passed here to win. Without them
+# the suite would run against the development database.
+TEST_ENV := -e APP_ENV=testing -e DB_DATABASE=blog_test -e CACHE_STORE=array \
+            -e QUEUE_CONNECTION=sync -e MAIL_MAILER=array -e SESSION_DRIVER=array
+
 test: ## Run the Pest test suite
-	$(COMPOSE) exec app php artisan test
+	$(COMPOSE) exec $(TEST_ENV) app php artisan test
 
-test-coverage: ## Run tests with a coverage report (needs XDEBUG_MODE=coverage)
-	$(COMPOSE) exec -e XDEBUG_MODE=coverage app php artisan test --coverage
+test-coverage: ## Run tests with a coverage report
+	$(COMPOSE) exec $(TEST_ENV) -e XDEBUG_MODE=coverage app php artisan test --coverage --min=70
 
+# why clear-result-cache: after files change, a partially-invalidated PHPStan
+# result cache can start the run without Larastan's bootstrap having defined
+# LARAVEL_VERSION, which fails with a confusing "Undefined constant" error.
+# Clearing it first costs a few seconds and makes the check deterministic.
 lint: ## Code style check (Pint) + static analysis (Larastan)
-	$(COMPOSE) exec app sh -c "./vendor/bin/pint --test && { [ -f vendor/bin/phpstan ] && ./vendor/bin/phpstan analyse --memory-limit=1G || echo 'phpstan not installed yet'; }"
+	$(COMPOSE) exec app ./vendor/bin/pint --test
+	$(COMPOSE) exec app ./vendor/bin/phpstan clear-result-cache
+	$(COMPOSE) exec app ./vendor/bin/phpstan analyse --memory-limit=1G --no-progress
 
 fix: ## Auto-fix code style with Pint
 	$(COMPOSE) exec app ./vendor/bin/pint

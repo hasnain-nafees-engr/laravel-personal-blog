@@ -35,7 +35,7 @@ class CommentController extends Controller
 
         // why always Pending: nothing a stranger types reaches the site
         // before a human has read it. Moderation is the whole point.
-        $comment->status = CommentStatus::Pending;
+        $comment->setAttribute('status', CommentStatus::Pending);
         $comment->save();
 
         CommentSubmitted::dispatch($comment);

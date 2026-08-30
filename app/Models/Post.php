@@ -10,6 +10,7 @@ use Database\Factories\PostFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -20,6 +21,38 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
+/**
+ * why these @property lines exist: Eloquent resolves columns and accessors at
+ * runtime through __get, so static analysis has no way to know that
+ * $post->status is a PostStatus and not a string. Annotating them makes
+ * Larastan (and every IDE) understand the model, and turns a typo like
+ * $post->titel into an error instead of a silent null.
+ *
+ * @property int $id
+ * @property int $user_id
+ * @property int|null $category_id
+ * @property string $title
+ * @property string $slug
+ * @property string|null $excerpt
+ * @property string $body
+ * @property string|null $cover_image
+ * @property PostStatus $status
+ * @property Carbon|null $published_at
+ * @property int $view_count
+ * @property Carbon|null $deleted_at
+ * @property Carbon $created_at
+ * @property Carbon $updated_at
+ * @property-read string $body_html    accessor - rendered Markdown
+ * @property-read int $reading_time    accessor - estimated minutes
+ * @property-read string $summary      accessor - excerpt with a fallback
+ * @property-read User $user
+ * @property-read Category|null $category
+ * @property-read Collection<int, Tag> $tags
+ * @property-read Collection<int, Comment> $comments
+ * @property-read Collection<int, Comment> $approvedComments
+ * @property-read int|null $approved_comments_count
+ * @property-read int|null $comments_count
+ */
 #[Fillable([
     'category_id', 'title', 'slug', 'excerpt', 'body',
     'cover_image', 'status', 'published_at',
