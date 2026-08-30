@@ -1,9 +1,129 @@
 @import 'tailwindcss';
 
-@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
-@source '../../storage/framework/views/*.php';
+/* Tailwind v4 loads plugins from CSS instead of a JS config file. */
+@plugin '@tailwindcss/forms';
 
+/* Blade templates and Livewire classes must be scanned for utility classes. */
+@source '../views';
+@source '../../app/Livewire';
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+
+/* why: dark mode is toggled by a class on <html>, not by the OS setting alone,
+   so visitors can override it. This replaces v3's darkMode: 'class'. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ---------------------------------------------------------------------------
+   Design tokens - an "ink & ochre" editorial palette, deliberately not the
+   default Tailwind blue/grey template look.
+--------------------------------------------------------------------------- */
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif;
+    --font-serif: 'Newsreader', ui-serif, Georgia, serif;
+
+    /* Warm paper tones for surfaces */
+    --color-paper-50: oklch(0.99 0.005 85);
+    --color-paper-100: oklch(0.975 0.008 85);
+    --color-paper-200: oklch(0.94 0.012 85);
+    --color-paper-300: oklch(0.89 0.014 85);
+
+    /* Cool ink tones for text and dark surfaces */
+    --color-ink-300: oklch(0.72 0.018 260);
+    --color-ink-400: oklch(0.60 0.022 260);
+    --color-ink-500: oklch(0.48 0.026 260);
+    --color-ink-600: oklch(0.38 0.028 260);
+    --color-ink-700: oklch(0.29 0.028 260);
+    --color-ink-800: oklch(0.22 0.026 260);
+    --color-ink-900: oklch(0.16 0.024 260);
+    --color-ink-950: oklch(0.12 0.022 260);
+
+    /* Ochre accent - links, buttons, focus rings */
+    --color-ochre-100: oklch(0.95 0.045 75);
+    --color-ochre-300: oklch(0.83 0.12 70);
+    --color-ochre-500: oklch(0.68 0.16 60);
+    --color-ochre-600: oklch(0.60 0.155 55);
+    --color-ochre-700: oklch(0.50 0.13 52);
+}
+
+/* ---------------------------------------------------------------------------
+   Base element styles
+--------------------------------------------------------------------------- */
+@layer base {
+    html {
+        scroll-behavior: smooth;
+    }
+
+    body {
+        @apply bg-paper-50 text-ink-800 antialiased dark:bg-ink-950 dark:text-paper-200;
+    }
+
+    /* One visible, consistent focus ring everywhere - keyboard users must
+       always be able to see where they are. */
+    :focus-visible {
+        @apply outline-2 outline-offset-2 outline-ochre-600;
+    }
+
+    ::selection {
+        @apply bg-ochre-300/40;
+    }
+}
+
+/* ---------------------------------------------------------------------------
+   Article body: hand-written prose styles for rendered Markdown.
+   why: written by hand instead of pulling in @tailwindcss/typography, so the
+   article voice is ours and there is one less dependency to justify.
+--------------------------------------------------------------------------- */
+@layer components {
+    .prose-blog {
+        @apply font-serif text-lg/8 text-ink-700 dark:text-paper-200;
+    }
+
+    .prose-blog > * + * {
+        @apply mt-6;
+    }
+
+    .prose-blog h2 {
+        @apply mt-12 font-sans text-2xl font-semibold tracking-tight text-ink-900 dark:text-paper-50;
+    }
+
+    .prose-blog h3 {
+        @apply mt-10 font-sans text-xl font-semibold tracking-tight text-ink-900 dark:text-paper-50;
+    }
+
+    .prose-blog a {
+        @apply text-ochre-700 underline decoration-ochre-300 underline-offset-4
+               hover:decoration-ochre-600 dark:text-ochre-300 dark:decoration-ochre-700;
+    }
+
+    .prose-blog ul {
+        @apply list-disc space-y-2 pl-6 marker:text-ochre-500;
+    }
+
+    .prose-blog ol {
+        @apply list-decimal space-y-2 pl-6 marker:text-ochre-500;
+    }
+
+    .prose-blog blockquote {
+        @apply border-l-4 border-ochre-300 pl-5 text-ink-600 italic dark:border-ochre-700 dark:text-paper-300;
+    }
+
+    .prose-blog code {
+        @apply rounded bg-paper-200 px-1.5 py-0.5 font-mono text-[0.85em] text-ink-800
+               dark:bg-ink-800 dark:text-paper-100;
+    }
+
+    .prose-blog pre {
+        @apply overflow-x-auto rounded-xl bg-ink-900 p-5 text-sm/6 text-paper-100 dark:bg-ink-800;
+    }
+
+    .prose-blog pre code {
+        @apply bg-transparent p-0 text-inherit;
+    }
+
+    .prose-blog img {
+        @apply rounded-xl;
+    }
+
+    .prose-blog hr {
+        @apply my-10 border-paper-300 dark:border-ink-800;
+    }
 }

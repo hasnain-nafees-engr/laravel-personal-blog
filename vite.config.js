@@ -8,10 +8,11 @@ export default defineConfig({
         laravel({
             input: ['resources/css/app.css', 'resources/js/app.js'],
             refresh: true,
+            // Self-hosted via Bunny Fonts: no Google CDN request from the
+            // visitor's browser, so no third-party tracking and no CSP hole.
             fonts: [
-                bunny('Instrument Sans', {
-                    weights: [400, 500, 600],
-                }),
+                bunny('Instrument Sans', { weights: [400, 500, 600, 700] }),
+                bunny('Newsreader', { weights: [400, 500, 600], styles: ['normal', 'italic'] }),
             ],
         }),
         tailwindcss(),
