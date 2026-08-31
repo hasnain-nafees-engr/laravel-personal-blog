@@ -387,3 +387,19 @@ because a third-party image host is down or rate-limits.
 The trade is repository size and the fact that content updates are now code
 changes. At this scale both are clearly worth it; a site with hundreds of
 seeded articles would want a different approach.
+
+## D-024: `docker/setup-buildx-action` before the CI image build
+
+**Choice.** The CI "Production image builds" job runs
+`docker/setup-buildx-action@v3` before `docker/build-push-action@v6`.
+
+**Alternatives.** Drop `cache-to`/`cache-from` and accept a slower, uncached
+build every run.
+
+**Trade-off.** The first real CI run on GitHub failed with `Cache export is
+not supported for the docker driver`. `cache-to: type=gha` needs the
+`docker-container` buildx driver; GitHub's runners default to the plain
+`docker` driver, which builds images fine but refuses cache export outright.
+`setup-buildx-action` swaps the driver in before the build step, at the cost
+of a few extra seconds per run — worth it, since the whole point of this job
+is fast, cached confirmation that the shipped Dockerfile still builds.
