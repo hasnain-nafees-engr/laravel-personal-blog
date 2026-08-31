@@ -363,3 +363,27 @@ confusing five minutes if you have not met it before.
 the container's restart policy brings them back with the new code. `--max-time`
 is a belt-and-braces backstop: a worker recycles itself hourly regardless. In a
 real deployment this is a mandatory post-deploy step.
+
+## D-023: Real articles and committed cover photos, not Faker
+
+**Choice.** `database/seeders/data/articles.php` holds twelve complete
+articles in Markdown; twelve cover photos live in
+`database/seeders/assets/covers/` and are committed to the repository.
+
+**Alternatives.** (a) Faker paragraphs, as the first version of the seeder
+used; (b) downloading cover images at seed time.
+
+**Trade-off.** Lorem ipsum has no headings, code blocks, lists, links or
+blockquotes, so the prose styles, the reading-time estimate and the Markdown
+renderer were never honestly exercised — the seeded site looked plausible from
+a distance and told a reviewer nothing. Real articles surface all of it, and
+give the search, tag and category pages meaningful things to match.
+
+Committing the photos (1.9 MB for twelve, re-encoded at quality 78) rather
+than fetching them at seed time means `make fresh` works with no network
+access, gives identical results on every machine and in CI, and cannot break
+because a third-party image host is down or rate-limits.
+
+The trade is repository size and the fact that content updates are now code
+changes. At this scale both are clearly worth it; a site with hundreds of
+seeded articles would want a different approach.

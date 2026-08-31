@@ -72,8 +72,14 @@ PostgreSQL, waits for it, runs the migrations and starts the queue worker and sc
 Then seed the demo content:
 
 ```bash
-make fresh          # drops, re-migrates and seeds 30 posts with comments
+make fresh          # drops, re-migrates and seeds the demo blog
 ```
+
+That gives you **12 published articles** with real cover photos, a draft, a post
+scheduled for next week, and 31 comments including threaded replies and two waiting
+in the moderation queue. The articles are genuine technical posts — several of them
+document problems that came up while building this project — because lorem ipsum
+would exercise none of the prose styles, reading-time estimates or Markdown rendering.
 
 | What | Where |
 |---|---|
